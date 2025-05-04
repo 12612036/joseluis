@@ -1,3 +1,4 @@
+#include <iostream>
 #include "Jugador.h"
 
 CJugador::CJugador() {};
@@ -5,55 +6,60 @@ CJugador::CJugador() {};
 CJugador::~CJugador() {};
 
 CJugador::CJugador(int x, int y) {
-	this->x = x;
-	this->y = y;
-	dx = 0;
-	dy = 0;
-	ultimaTecla = EDireccion::Abajo;
-	direccion = EDireccion::Ninguna;
-	indiceX = 0;
-	indiceY = 2;
+  this->x = x;
+  this->y = y;
+  dx = 0;
+  dy = 0;
+  ultimaTecla = EDireccion::Abajo;
+  direccion = EDireccion::Ninguna;
+  indiceX = 0;
+  indiceY = 2;
   for (int i = 0; i < HABILIDADES; i++) {
     habilidades[i] = false;
-  }    
+  }
 }
 
 void CJugador::setDireccion(EDireccion direccion) {
   this->direccion = direccion;
 }
 
-void CJugador::Dibujar(Graphics^ g, Bitmap^ bmpJugador) {
-
-    int anchoExacto = ANCHO+1; 
-    int altoExacto = ALTO;    
-
-    // Calcular las coordenadas exactas en el sprite sheet
-    int origenX = indiceX * anchoExacto;
-    int origenY = indiceY * altoExacto;
-
-    // Verificar que no nos salgamos de los límites
-    if (origenX + anchoExacto > bmpJugador->Width) {
-        origenX = 0;
+void CJugador::controlarLimitesMovimiento(const CanchaArray& cancha) {
+    int offset = 2; // Ajusta este valor según sea necesario
+    int anchoReducido = ANCHOIMAGEN - 2 * offset;
+    int altoReducido = ALTOIMAGEN - 2 * offset;
+  int X = 0, Y = 0;
+  for (int i = 0; i < FILAS; i++) {
+    X = 0;
+    for (int j = 0; j < COLUMNAS; j++) {
+      std::cout << "cancha[i][j] = " << cancha[i][j] << std::endl;
+      Rectangle intersecta = Rectangle(X + offset, Y + offset, anchoReducido, altoReducido);
+      if ((cancha[i][j]->getTipo() == EElementos::paredes) || (cancha[i][j]->getTipo() == EElementos::rrompible)) {
+        if (limiteArribaAbajo.IntersectsWith(intersecta)) { dy = 0; }
+        if (limiteDerechaIzquierda.IntersectsWith(intersecta)) { dx = 0; }
+      }
+      X += ANCHOIMAGEN;
     }
-    if (origenY + altoExacto > bmpJugador->Height) {
-        origenY = 0;
-    }
-
-    Rectangle porcionOrigen = Rectangle(origenX, origenY, anchoExacto, altoExacto);
-
-    int anchoNuevo = static_cast<int>(ANCHO * FACTORZOOM);
-    int altoNuevo = static_cast<int>(ALTO * FACTORZOOM);
-
-    Rectangle areaDestino = Rectangle(x, y, anchoNuevo, altoNuevo);
-
-    //Configuraciones para mejorar la calidad de la imagen
-    g->InterpolationMode = System::Drawing::Drawing2D::InterpolationMode::NearestNeighbor;
-    g->PixelOffsetMode = System::Drawing::Drawing2D::PixelOffsetMode::Half;
-    g->CompositingQuality = System::Drawing::Drawing2D::CompositingQuality::HighQuality;
-    g->DrawImage(bmpJugador, areaDestino, porcionOrigen, GraphicsUnit::Pixel);
+    Y += ALTOIMAGEN;
+  }
 }
 
-void CJugador::Mover(Graphics^ g, Bitmap^ bmpJugador) {
+void CJugador::dibujar(Graphics^ g, Bitmap^ bmpJugador, const CanchaArray& cancha) {
+  limiteDerechaIzquierda = Rectangle(x+2*FACTORZOOM+dx, y+15*FACTORZOOM, (ANCHOJUGADOR-10) * FACTORZOOM, (ALTOJUGADOR - 20) * FACTORZOOM);
+  limiteArribaAbajo = Rectangle(x+2*FACTORZOOM, y+15*FACTORZOOM+dy, (ANCHOJUGADOR-10) * FACTORZOOM, (ALTOJUGADOR - 20) * FACTORZOOM);
+
+  /*g->DrawRectangle(Pens::Red, limiteDerechaIzquierda);
+  g->DrawRectangle(Pens::Blue, limiteArribaAbajo);*/
+
+  controlarLimitesMovimiento(cancha);
+
+	 Rectangle rectangulo = Rectangle(indiceX * ANCHOJUGADOR, indiceY * ALTOJUGADOR, ANCHOJUGADOR, ALTOJUGADOR);
+	 Rectangle zoom = Rectangle(x, y, ANCHOJUGADOR * FACTORZOOM, ALTOJUGADOR * FACTORZOOM);
+   g->DrawImage(bmpJugador, zoom, rectangulo, GraphicsUnit::Pixel);
+	 x += dx;
+	 y += dy;
+}
+
+void CJugador::mover(Graphics^ g, Bitmap^ bmpJugador, const CanchaArray& cancha) {
   switch (direccion) {
     case EDireccion::Arriba:
       indiceY = 0;
@@ -112,20 +118,16 @@ void CJugador::Mover(Graphics^ g, Bitmap^ bmpJugador) {
           indiceY = 0;
           break;
         case EDireccion::Izquierda:
-          indiceX = 3; //Cambiamos para que encaje con la imagen de la izquierda
+          indiceX = 1;
           indiceY = 3;
           break;        
         case EDireccion::Derecha:
-          indiceX = 0; //Cambiamos de 1 a 0 para la primera imagene del tick
-          indiceY = 1; //Cambiamos de 3 a 1 para usar la fila correcta
+          indiceX = 1;
+          indiceY = 1;
           break;
       }
       break;      
   }
 
-  //Actualizamos la posicion del jugador aplicando dx y dy
-  x += dx;
-  y += dy;
-
-  Dibujar(g, bmpJugador);
+  dibujar(g, bmpJugador, cancha);
 }
